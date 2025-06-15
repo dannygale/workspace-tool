@@ -55,7 +55,7 @@ _ws_completion() {
             return 0
             ;;
         new)
-            # For 'new' command, don't provide completions (user should type new name)
+            # For 'new' command, don't provide completions for workspace name (user should type new name)
             return 0
             ;;
         list|ls|exit|help)
@@ -63,6 +63,19 @@ _ws_completion() {
             return 0
             ;;
     esac
+    
+    # Handle cases where we're completing the third argument (base branch for 'new' command)
+    if [[ ${COMP_CWORD} -eq 3 ]]; then
+        local command="${COMP_WORDS[1]}"
+        case "$command" in
+            new)
+                # For 'new' command's second argument, suggest branch names
+                local branches=$(git branch -a 2>/dev/null | sed 's/^[* ] //' | sed 's/remotes\/origin\///' | sort -u | grep -v '^HEAD' || echo "develop main master")
+                COMPREPLY=($(compgen -W "$branches" -- "$cur"))
+                return 0
+                ;;
+        esac
+    fi
     
     # Handle cases where the previous word is not the direct command
     # (e.g., when completing the second argument)

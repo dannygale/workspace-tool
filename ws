@@ -60,20 +60,21 @@ Workspace Management Tool
 Usage: ws <command> [arguments]
 
 Commands:
-  new [name]     Create a new workspace with feature branch
-  open [name]    Change directory to the specified workspace
-  fetch [name]   Fetch the feature branch from the workspace
-  finish [name]  Fetch and merge the feature branch into develop
-  rm [name]      Delete the workspace (with confirmation if not merged)
-  list           List all existing workspaces
-  exit           Return to root directory if currently in a workspace
-  help           Show this help message
+  new [name] [base-branch]  Create a new workspace with feature branch (default: develop)
+  open [name]               Change directory to the specified workspace
+  fetch [name]              Fetch the feature branch from workspace to main repository
+  finish [name]             Fetch feature branch from workspace and merge into develop
+  rm [name]                 Delete the workspace (with confirmation if not merged)
+  list                      List all existing workspaces
+  exit                      Return to root directory if currently in a workspace
+  help                      Show this help message
 
 Examples:
-  ws new my-feature
+  ws new my-feature                # Creates workspace from develop branch
+  ws new my-feature main           # Creates workspace from main branch
   ws open my-feature
-  ws fetch my-feature
-  ws finish my-feature
+  ws fetch my-feature              # Brings changes from workspace back to main repo
+  ws finish my-feature             # Fetches from workspace and merges into develop
   ws rm my-feature
   ws exit
 EOF
@@ -110,6 +111,8 @@ get_branch_name() {
 # Command implementations
 cmd_new() {
     local name="$1"
+    local base_branch="${2:-develop}"  # Default to develop, allow override
+    
     validate_workspace_name "$name"
     
     local workspace_path=$(get_workspace_path "$name")
@@ -120,15 +123,23 @@ cmd_new() {
         exit 1
     fi
     
-    log_info "Creating workspace '$name'..."
+    log_info "Creating workspace '$name' from branch '$base_branch'..."
     
     # Create workspace directory
     mkdir -p "$workspace_path"
     cd "$workspace_path"
     
-    # Clone repo from develop branch
-    log_info "Cloning repository..."
-    git clone -b develop "$BASEDIR" .
+    # Clone repo from specified base branch
+    log_info "Cloning repository from '$base_branch' branch..."
+    if git clone -b "$base_branch" "$BASEDIR" .; then
+        log_success "Successfully cloned from '$base_branch' branch"
+    else
+        log_error "Failed to clone from '$base_branch' branch"
+        log_error "Make sure the '$base_branch' branch exists"
+        cd "$BASEDIR"
+        rm -rf "$workspace_path"
+        exit 1
+    fi
     
     # Create and checkout feature branch
     log_info "Creating feature branch '$branch_name'..."
@@ -136,7 +147,8 @@ cmd_new() {
     git checkout "$branch_name"
     
     log_success "Workspace '$name' created successfully"
-    log_info "Branch: $branch_name"
+    log_info "Base branch: $base_branch"
+    log_info "Feature branch: $branch_name"
     log_info "Path: $workspace_path"
 }
 
@@ -168,32 +180,35 @@ cmd_fetch() {
     local workspace_path=$(get_workspace_path "$name")
     local branch_name=$(get_branch_name "$name")
     
-    log_info "Fetching branch '$branch_name' from workspace '$name'..."
+    log_info "Fetching branch '$branch_name' from workspace '$name' to main repository..."
     
-    cd "$workspace_path"
+    # Work in the main repository, not the workspace
+    cd "$BASEDIR"
     
-    # Fetch the feature branch
-    git fetch origin "$branch_name" 2>/dev/null || {
-        log_warning "Branch '$branch_name' not found on remote, fetching all branches..."
-        git fetch --all
-    }
-    
-    # Check if branch exists locally or remotely
-    if git show-ref --verify --quiet "refs/heads/$branch_name"; then
-        log_info "Updating local branch '$branch_name'..."
-        git checkout "$branch_name"
-        if git show-ref --verify --quiet "refs/remotes/origin/$branch_name"; then
-            git pull origin "$branch_name"
-        fi
-    elif git show-ref --verify --quiet "refs/remotes/origin/$branch_name"; then
-        log_info "Checking out remote branch '$branch_name'..."
-        git checkout -b "$branch_name" "origin/$branch_name"
+    # Fetch the feature branch from the workspace directory
+    log_info "Fetching changes from workspace..."
+    if git fetch "$workspace_path" "$branch_name:$branch_name" 2>/dev/null; then
+        log_success "Successfully fetched branch '$branch_name' from workspace"
     else
-        log_error "Branch '$branch_name' not found locally or remotely"
-        exit 1
+        # If direct fetch fails, try adding workspace as a temporary remote
+        log_info "Direct fetch failed, trying alternative method..."
+        
+        # Add workspace as temporary remote
+        local temp_remote="workspace-$name"
+        git remote add "$temp_remote" "$workspace_path" 2>/dev/null || true
+        
+        # Fetch from temporary remote
+        if git fetch "$temp_remote" "$branch_name:$branch_name"; then
+            log_success "Successfully fetched branch '$branch_name' from workspace"
+        else
+            log_error "Failed to fetch branch '$branch_name' from workspace"
+            git remote remove "$temp_remote" 2>/dev/null || true
+            exit 1
+        fi
+        
+        # Clean up temporary remote
+        git remote remove "$temp_remote" 2>/dev/null || true
     fi
-    
-    log_success "Successfully fetched branch '$branch_name'"
 }
 
 cmd_finish() {
@@ -210,14 +225,27 @@ cmd_finish() {
     
     log_info "Finishing workspace '$name'..."
     
-    cd "$workspace_path"
+    # Work in the main repository, not the workspace
+    cd "$BASEDIR"
     
-    # Fetch latest changes
-    log_info "Fetching latest changes..."
-    git fetch --all
+    # First, fetch the latest changes from the workspace
+    log_info "Fetching latest changes from workspace..."
+    local temp_remote="workspace-$name"
+    git remote add "$temp_remote" "$workspace_path" 2>/dev/null || true
     
-    # Switch to develop and pull latest
-    log_info "Updating develop branch..."
+    if git fetch "$temp_remote" "$branch_name:$branch_name"; then
+        log_success "Fetched latest changes from workspace"
+    else
+        log_error "Failed to fetch changes from workspace"
+        git remote remove "$temp_remote" 2>/dev/null || true
+        exit 1
+    fi
+    
+    # Clean up temporary remote
+    git remote remove "$temp_remote" 2>/dev/null || true
+    
+    # Switch to develop and pull latest from origin
+    log_info "Updating develop branch from origin..."
     git checkout develop
     git pull origin develop
     
@@ -226,11 +254,12 @@ cmd_finish() {
     if git merge "$branch_name" --no-ff -m "Merge $branch_name into develop"; then
         log_success "Successfully merged '$branch_name' into develop"
         
-        # Push develop branch
-        log_info "Pushing develop branch..."
+        # Push develop branch to origin
+        log_info "Pushing develop branch to origin..."
         git push origin develop
         
         log_success "Workspace '$name' finished successfully"
+        log_info "The feature branch '$branch_name' is now merged into develop"
     else
         log_error "Failed to merge '$branch_name' into develop"
         log_error "Please resolve conflicts manually"
