@@ -45,6 +45,7 @@ Commands:
   finish [name]  Fetch and merge the feature branch into develop
   rm [name]      Delete the workspace (with confirmation if not merged)
   list           List all existing workspaces
+  exit           Return to root directory if currently in a workspace
   help           Show this help message
 
 Examples:
@@ -53,6 +54,7 @@ Examples:
   ws fetch my-feature
   ws finish my-feature
   ws rm my-feature
+  ws exit
 EOF
 }
 
@@ -279,6 +281,36 @@ cmd_list() {
     done
 }
 
+cmd_exit() {
+    local current_dir=$(pwd)
+    local root_dir=""
+    
+    # Find the root directory by looking for the ws script
+    local search_dir="$current_dir"
+    while [[ "$search_dir" != "/" ]]; do
+        if [[ -f "$search_dir/ws" ]]; then
+            root_dir="$search_dir"
+            break
+        fi
+        search_dir=$(dirname "$search_dir")
+    done
+    
+    if [[ -z "$root_dir" ]]; then
+        log_error "Could not find root directory (no 'ws' script found in parent directories)"
+        exit 1
+    fi
+    
+    # Check if we're currently in a workspace directory
+    local workspaces_dir="$root_dir/workspaces"
+    if [[ "$current_dir" == "$workspaces_dir"* ]]; then
+        # We're in a workspace, return the root directory path
+        echo "$root_dir"
+    else
+        log_info "Already in root directory or not in a workspace"
+        echo "$current_dir"
+    fi
+}
+
 # Main command dispatcher
 main() {
     if [[ $# -eq 0 ]]; then
@@ -307,6 +339,9 @@ main() {
             ;;
         list|ls)
             cmd_list "$@"
+            ;;
+        exit)
+            cmd_exit "$@"
             ;;
         help|--help|-h)
             show_usage

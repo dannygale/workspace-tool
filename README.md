@@ -14,33 +14,38 @@ several coding agents working on different things.
 
 ## Installation
 
-### Quick Install
+### Quick Install (Recommended)
 ```bash
 ./install-ws.sh
+```
+
+The install script will:
+- Install the `ws` command to `~/.local/bin/`
+- Install shell integration for `ws open` and `ws exit` commands
+- Automatically add sourcing to your shell profile (`.bashrc`, `.zshrc`, etc.)
+- Provide instructions for any manual steps needed
+
+After installation, restart your terminal or source your profile:
+```bash
+# For bash users
+source ~/.bashrc
+
+# For zsh users  
+source ~/.zshrc
 ```
 
 ### Manual Install
 1. Copy `ws` to a directory in your PATH (e.g., `~/.local/bin/`)
 2. Make it executable: `chmod +x ~/.local/bin/ws`
-3. Add the shell function to your profile for `ws open` functionality
+3. Copy `ws-shell-integration.sh` to the same directory
+4. Add `source ~/.local/bin/ws-shell-integration.sh` to your shell profile
 
-### Shell Function Setup
-Add this function to your `~/.bashrc`, `~/.zshrc`, or equivalent:
+### Shell Integration
+The shell integration enables `ws open` to change your current directory and `ws exit` to return to the project root. This is automatically set up by the install script, but if you need to add it manually:
 
 ```bash
-ws() {
-    if [[ "$1" == "open" ]]; then
-        local workspace_path=$(command ws open "$2" 2>/dev/null)
-        if [[ $? -eq 0 && -n "$workspace_path" ]]; then
-            cd "$workspace_path"
-            echo "Changed to workspace: $2"
-        else
-            command ws open "$2"
-        fi
-    else
-        command ws "$@"
-    fi
-}
+# Add this line to your ~/.bashrc, ~/.zshrc, or equivalent
+source ~/.local/bin/ws-shell-integration.sh
 ```
 
 ## Usage
@@ -59,6 +64,12 @@ This will:
 ws open my-feature
 ```
 Changes your current directory to the workspace (requires shell function setup).
+
+### Exit a workspace
+```bash
+ws exit
+```
+Returns to the root project directory if you're currently in a workspace directory (requires shell function setup).
 
 ### Fetch a feature branch
 ```bash
@@ -117,16 +128,19 @@ project-root/
 ## Troubleshooting
 
 ### `ws open` doesn't change directory
-Make sure you've added the shell function to your profile and reloaded it:
+Make sure the shell integration is properly sourced. Check if the line `source ~/.local/bin/ws-shell-integration.sh` is in your shell profile and reload it:
 ```bash
 source ~/.bashrc  # or ~/.zshrc
 ```
 
+### `ws exit` doesn't change directory
+The `exit` command also requires the shell integration. Make sure you've sourced the `ws-shell-integration.sh` file in your shell profile.
+
 ### Permission denied
 Make sure the script is executable:
 ```bash
-chmod +x /path/to/ws
+chmod +x ~/.local/bin/ws
 ```
 
 ### Command not found
-Ensure the script is in your PATH or use the full path to execute it.
+Ensure the script is in your PATH or use the full path to execute it. The install script should handle this automatically.
