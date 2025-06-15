@@ -8,6 +8,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$HOME/.local/bin"
 SHELL_INTEGRATION_FILE="$INSTALL_DIR/ws-shell-integration.sh"
 GIT_SHELL_INTEGRATION_FILE="$INSTALL_DIR/git-ws-shell-integration.sh"
+WS_COMPLETION_BASH="$INSTALL_DIR/ws-completion.bash"
+GIT_WS_COMPLETION_BASH="$INSTALL_DIR/git-ws-completion.bash"
+WS_COMPLETION_ZSH="$INSTALL_DIR/ws-completion.zsh"
+GIT_WS_COMPLETION_ZSH="$INSTALL_DIR/git-ws-completion.zsh"
 
 echo "Installing workspace management tool..."
 
@@ -33,11 +37,35 @@ echo "✓ Installed shell integration to $SHELL_INTEGRATION_FILE"
 cp "$SCRIPT_DIR/git-ws-shell-integration.sh" "$GIT_SHELL_INTEGRATION_FILE"
 echo "✓ Installed git shell integration to $GIT_SHELL_INTEGRATION_FILE"
 
+# Copy the completion files
+cp "$SCRIPT_DIR/ws-completion.bash" "$WS_COMPLETION_BASH"
+echo "✓ Installed ws bash completion to $WS_COMPLETION_BASH"
+
+cp "$SCRIPT_DIR/git-ws-completion.bash" "$GIT_WS_COMPLETION_BASH"
+echo "✓ Installed git ws bash completion to $GIT_WS_COMPLETION_BASH"
+
+cp "$SCRIPT_DIR/ws-completion.zsh" "$WS_COMPLETION_ZSH"
+echo "✓ Installed ws zsh completion to $WS_COMPLETION_ZSH"
+
+cp "$SCRIPT_DIR/git-ws-completion.zsh" "$GIT_WS_COMPLETION_ZSH"
+echo "✓ Installed git ws zsh completion to $GIT_WS_COMPLETION_ZSH"
+
 # Function to add sourcing to a profile file
 add_to_profile() {
     local profile_file="$1"
     local ws_source_line="source \"$SHELL_INTEGRATION_FILE\""
     local git_source_line="source \"$GIT_SHELL_INTEGRATION_FILE\""
+    local ws_completion_line=""
+    local git_completion_line=""
+    
+    # Set completion lines based on shell type
+    if [[ "$profile_file" == *".zshrc"* ]]; then
+        ws_completion_line="source \"$WS_COMPLETION_ZSH\""
+        git_completion_line="source \"$GIT_WS_COMPLETION_ZSH\""
+    else
+        ws_completion_line="source \"$WS_COMPLETION_BASH\""
+        git_completion_line="source \"$GIT_WS_COMPLETION_BASH\""
+    fi
     
     if [[ -f "$profile_file" ]]; then
         local added_something=false
@@ -57,6 +85,26 @@ add_to_profile() {
             fi
             echo "# git ws workspace management subcommand shell integration" >> "$profile_file"
             echo "$git_source_line" >> "$profile_file"
+            added_something=true
+        fi
+        
+        # Check and add ws completion
+        if ! grep -q "ws-completion" "$profile_file"; then
+            if [[ "$added_something" == false ]]; then
+                echo "" >> "$profile_file"
+            fi
+            echo "# ws workspace management tool tab completion" >> "$profile_file"
+            echo "$ws_completion_line" >> "$profile_file"
+            added_something=true
+        fi
+        
+        # Check and add git ws completion
+        if ! grep -q "git-ws-completion" "$profile_file"; then
+            if [[ "$added_something" == false ]]; then
+                echo "" >> "$profile_file"
+            fi
+            echo "# git ws workspace management subcommand tab completion" >> "$profile_file"
+            echo "$git_completion_line" >> "$profile_file"
             added_something=true
         fi
         

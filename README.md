@@ -14,6 +14,7 @@ Available as both a standalone command (`ws`) and a git subcommand (`git ws`).
 - **Clean up**: Remove workspaces with safety checks
 - **List workspaces**: View all existing workspaces
 - **Git integration**: Use as `git ws` subcommand for seamless git workflow
+- **Tab completion**: Smart tab completion for commands and workspace names in both Bash and Zsh
 
 ## Installation
 
@@ -26,6 +27,7 @@ The install script will:
 - Install the `ws` command to `~/.local/bin/`
 - Install the `git ws` subcommand to `~/.local/bin/`
 - Install shell integration for `ws open`/`ws exit` and `git ws open`/`git ws exit` commands
+- Install tab completion for both `ws` and `git ws` commands in Bash and Zsh
 - Automatically add sourcing to your shell profile (`.bashrc`, `.zshrc`, etc.)
 - Provide instructions for any manual steps needed
 
@@ -120,6 +122,33 @@ ws list
 git ws list
 ```
 Shows all existing workspaces and their associated feature branches.
+
+## Tab Completion
+
+Both `ws` and `git ws` support intelligent tab completion:
+
+### Command Completion
+```bash
+ws <TAB>
+# Shows: new open fetch finish rm remove delete list ls exit help
+
+git ws <TAB>  
+# Shows: new open fetch finish rm remove delete list ls exit help
+```
+
+### Workspace Name Completion
+```bash
+ws open <TAB>
+# Shows your existing workspace names
+
+ws rm <TAB>
+# Shows your existing workspace names
+
+git ws fetch <TAB>
+# Shows your existing workspace names
+```
+
+The completion automatically discovers workspaces and only shows relevant options based on the command context. See [TAB_COMPLETION.md](TAB_COMPLETION.md) for detailed information.
 
 ## Directory Structure
 
