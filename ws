@@ -60,23 +60,26 @@ Workspace Management Tool
 Usage: ws <command> [arguments]
 
 Commands:
-  new [name] [base-branch]  Create a new workspace with feature branch (default: develop)
-  open [name]               Change directory to the specified workspace
-  fetch [name]              Fetch the feature branch from workspace to main repository
-  finish [name]             Fetch feature branch from workspace and merge into develop
-  rm [name]                 Delete the workspace (with confirmation if not merged)
-  list                      List all existing workspaces
-  exit                      Return to root directory if currently in a workspace
-  help                      Show this help message
+  new|create [name] [base-branch]  Create a new workspace with feature branch (default: develop)
+  open|cd [name]                   Change directory to the specified workspace
+  fetch [name]                     Fetch the feature branch from workspace to main repository
+  finish [name]                    Fetch feature branch from workspace and merge into local develop
+  rm [name]                        Delete the workspace (with confirmation if not merged)
+  list                             List all existing workspaces
+  exit                             Return to root directory if currently in a workspace
+  help                             Show this help message
 
 Examples:
   ws new my-feature                # Creates workspace from develop branch
-  ws new my-feature main           # Creates workspace from main branch
-  ws open my-feature
+  ws create my-feature main       # Creates workspace from main branch (using alias)
+  ws open my-feature               # Opens workspace
+  ws cd my-feature                 # Opens workspace (using alias)
   ws fetch my-feature              # Brings changes from workspace back to main repo
-  ws finish my-feature             # Fetches from workspace and merges into develop
+  ws finish my-feature             # Fetches from workspace and merges into local develop
   ws rm my-feature
   ws exit
+
+Note: All operations work locally - no remote/origin operations are performed.
 EOF
 }
 
@@ -244,22 +247,16 @@ cmd_finish() {
     # Clean up temporary remote
     git remote remove "$temp_remote" 2>/dev/null || true
     
-    # Switch to develop and pull latest from origin
-    log_info "Updating develop branch from origin..."
+    # Switch to develop branch (no pulling from origin)
+    log_info "Switching to develop branch..."
     git checkout develop
-    git pull origin develop
     
     # Merge feature branch
     log_info "Merging '$branch_name' into develop..."
     if git merge "$branch_name" --no-ff -m "Merge $branch_name into develop"; then
         log_success "Successfully merged '$branch_name' into develop"
-        
-        # Push develop branch to origin
-        log_info "Pushing develop branch to origin..."
-        git push origin develop
-        
         log_success "Workspace '$name' finished successfully"
-        log_info "The feature branch '$branch_name' is now merged into develop"
+        log_info "The feature branch '$branch_name' is now merged into develop locally"
     else
         log_error "Failed to merge '$branch_name' into develop"
         log_error "Please resolve conflicts manually"
@@ -372,10 +369,10 @@ main() {
     shift
     
     case "$command" in
-        new)
+        new|create)
             cmd_new "$@"
             ;;
-        open)
+        open|cd)
             cmd_open "$@"
             ;;
         fetch)
