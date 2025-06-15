@@ -340,20 +340,12 @@ cmd_list() {
 
 cmd_exit() {
     local current_dir=$(pwd)
-    local root_dir=""
     
-    # Find the root directory by looking for the ws script
-    local search_dir="$current_dir"
-    while [[ "$search_dir" != "/" ]]; do
-        if [[ -f "$search_dir/ws" ]]; then
-            root_dir="$search_dir"
-            break
-        fi
-        search_dir=$(dirname "$search_dir")
-    done
+    # Find the git repository root
+    local root_dir=$(git rev-parse --show-toplevel 2>/dev/null)
     
     if [[ -z "$root_dir" ]]; then
-        log_error "Could not find root directory (no 'ws' script found in parent directories)"
+        log_error "Could not find git repository root (not in a git repository)"
         exit 1
     fi
     
