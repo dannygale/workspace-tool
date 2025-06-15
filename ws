@@ -62,7 +62,7 @@ Usage: ws <command> [arguments]
 Commands:
   new|create [name] [base-branch]  Create a new workspace with feature branch (default: develop)
   open|cd [name]                   Change directory to the specified workspace
-  fetch [name]                     Fetch the feature branch from workspace to main repository
+  fetch [name]                     Fetch the feature branch from local workspace to main repository
   finish [name]                    Fetch feature branch from workspace and merge into local develop
   rm [name]                        Delete the workspace (with confirmation if not merged)
   list                             List all existing workspaces
@@ -74,7 +74,7 @@ Examples:
   ws create my-feature main       # Creates workspace from main branch (using alias)
   ws open my-feature               # Opens workspace
   ws cd my-feature                 # Opens workspace (using alias)
-  ws fetch my-feature              # Brings changes from workspace back to main repo
+  ws fetch my-feature              # Brings changes from local workspace back to main repo
   ws finish my-feature             # Fetches from workspace and merges into local develop
   ws rm my-feature
   ws exit
@@ -183,28 +183,28 @@ cmd_fetch() {
     local workspace_path=$(get_workspace_path "$name")
     local branch_name=$(get_branch_name "$name")
     
-    log_info "Fetching branch '$branch_name' from workspace '$name' to main repository..."
+    log_info "Fetching branch '$branch_name' from local workspace '$name' to main repository..."
     
     # Work in the main repository, not the workspace
     cd "$BASEDIR"
     
-    # Fetch the feature branch from the workspace directory
-    log_info "Fetching changes from workspace..."
+    # Fetch the feature branch from the workspace directory (local operation)
+    log_info "Fetching changes from local workspace..."
     if git fetch "$workspace_path" "$branch_name:$branch_name" 2>/dev/null; then
-        log_success "Successfully fetched branch '$branch_name' from workspace"
+        log_success "Successfully fetched branch '$branch_name' from local workspace"
     else
         # If direct fetch fails, try adding workspace as a temporary remote
         log_info "Direct fetch failed, trying alternative method..."
         
-        # Add workspace as temporary remote
+        # Add workspace as temporary remote (still local)
         local temp_remote="workspace-$name"
         git remote add "$temp_remote" "$workspace_path" 2>/dev/null || true
         
-        # Fetch from temporary remote
+        # Fetch from temporary remote (local workspace)
         if git fetch "$temp_remote" "$branch_name:$branch_name"; then
-            log_success "Successfully fetched branch '$branch_name' from workspace"
+            log_success "Successfully fetched branch '$branch_name' from local workspace"
         else
-            log_error "Failed to fetch branch '$branch_name' from workspace"
+            log_error "Failed to fetch branch '$branch_name' from local workspace"
             git remote remove "$temp_remote" 2>/dev/null || true
             exit 1
         fi
