@@ -5,9 +5,6 @@
 
 set -e
 
-BASEDIR=$(pwd)
-WORKSPACES_DIR="$BASEDIR/workspaces"
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -31,6 +28,30 @@ log_warning() {
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
+
+# Find the git repository root
+find_git_root() {
+    local current_dir="$(pwd)"
+    while [[ "$current_dir" != "/" ]]; do
+        if [[ -d "$current_dir/.git" ]]; then
+            echo "$current_dir"
+            return 0
+        fi
+        current_dir=$(dirname "$current_dir")
+    done
+    
+    # If no .git directory found, check if we're in a git repository
+    if git rev-parse --git-dir > /dev/null 2>&1; then
+        git rev-parse --show-toplevel
+        return 0
+    fi
+    
+    log_error "Not in a git repository"
+    exit 1
+}
+
+BASEDIR=$(find_git_root)
+WORKSPACES_DIR="$BASEDIR/workspaces"
 
 show_usage() {
     cat << EOF

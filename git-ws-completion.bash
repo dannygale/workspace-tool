@@ -14,18 +14,26 @@ _git_ws_completion() {
     # Function to get existing workspace names
     _get_workspaces() {
         local workspaces_dir
-        # Try to find workspaces directory from current location or parent directories
-        local search_dir="$(pwd)"
-        while [[ "$search_dir" != "/" ]]; do
-            if [[ -d "$search_dir/workspaces" ]]; then
-                workspaces_dir="$search_dir/workspaces"
-                break
-            elif [[ -f "$search_dir/ws" ]]; then
-                workspaces_dir="$search_dir/workspaces"
-                break
-            fi
-            search_dir=$(dirname "$search_dir")
-        done
+        
+        # Try to find git repository root first
+        local git_root=""
+        if git rev-parse --show-toplevel > /dev/null 2>&1; then
+            git_root=$(git rev-parse --show-toplevel)
+            workspaces_dir="$git_root/workspaces"
+        else
+            # Fallback: search from current location up to parent directories
+            local search_dir="$(pwd)"
+            while [[ "$search_dir" != "/" ]]; do
+                if [[ -d "$search_dir/workspaces" ]]; then
+                    workspaces_dir="$search_dir/workspaces"
+                    break
+                elif [[ -f "$search_dir/ws" ]]; then
+                    workspaces_dir="$search_dir/workspaces"
+                    break
+                fi
+                search_dir=$(dirname "$search_dir")
+            done
+        fi
         
         if [[ -d "$workspaces_dir" ]]; then
             ls -1 "$workspaces_dir" 2>/dev/null | grep -v '^\.' || true

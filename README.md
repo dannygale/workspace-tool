@@ -7,7 +7,7 @@ Available as both a standalone command (`ws`) and a git subcommand (`git ws`).
 
 ## Features
 
-- **Create workspaces**: Set up new feature branches in isolated directories
+- **Create workspaces**: Set up new feature branches in isolated directories (always in git repository root)
 - **Navigate workspaces**: Quickly change to workspace directories
 - **Fetch branches**: Pull feature branches from remote repositories
 - **Finish features**: Merge feature branches into develop
@@ -15,6 +15,7 @@ Available as both a standalone command (`ws`) and a git subcommand (`git ws`).
 - **List workspaces**: View all existing workspaces
 - **Git integration**: Use as `git ws` subcommand for seamless git workflow
 - **Tab completion**: Smart tab completion for commands and workspace names in both Bash and Zsh
+- **Location independent**: Works from any directory within the git repository
 
 ## Installation
 
@@ -152,16 +153,18 @@ The completion automatically discovers workspaces and only shows relevant option
 
 ## Directory Structure
 
-The tool creates workspaces in the following structure:
+The tool creates workspaces in the following structure (always at the git repository root):
 ```
-project-root/
+git-repository-root/
 ├── workspaces/
 │   ├── feature-1/          # Full git repository
 │   ├── feature-2/          # Full git repository
 │   └── another-feature/    # Full git repository
 ├── ws                      # The workspace management tool
-└── create-workspace.sh     # Original script (can be removed)
+└── other-project-files...
 ```
+
+**Note**: Workspaces are always created in the git repository root's `workspaces/` directory, regardless of where you run the `ws` command from within the repository.
 
 ## Safety Features
 
