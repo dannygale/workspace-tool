@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Git subcommand wrapper for ws workspace management tool
+# This allows using 'git ws' instead of just 'ws'
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: Not in a git repository"
+    exit 1
+fi
+
+# Find the ws command - check if it's in the same directory first, then PATH
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -x "$SCRIPT_DIR/ws" ]]; then
+    WS_CMD="$SCRIPT_DIR/ws"
+elif command -v ws > /dev/null 2>&1; then
+    WS_CMD="ws"
+else
+    echo "Error: ws command not found. Please install ws first."
+    exit 1
+fi
+
+# Execute the ws command with all arguments
+exec "$WS_CMD" "$@"

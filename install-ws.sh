@@ -7,6 +7,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$HOME/.local/bin"
 SHELL_INTEGRATION_FILE="$INSTALL_DIR/ws-shell-integration.sh"
+GIT_SHELL_INTEGRATION_FILE="$INSTALL_DIR/git-ws-shell-integration.sh"
 
 echo "Installing workspace management tool..."
 
@@ -19,20 +20,47 @@ chmod +x "$INSTALL_DIR/ws"
 
 echo "✓ Installed ws to $INSTALL_DIR/ws"
 
-# Copy the shell integration file
+# Copy the git subcommand
+cp "$SCRIPT_DIR/git-ws" "$INSTALL_DIR/git-ws"
+chmod +x "$INSTALL_DIR/git-ws"
+
+echo "✓ Installed git-ws to $INSTALL_DIR/git-ws"
+
+# Copy the shell integration files
 cp "$SCRIPT_DIR/ws-shell-integration.sh" "$SHELL_INTEGRATION_FILE"
 echo "✓ Installed shell integration to $SHELL_INTEGRATION_FILE"
+
+cp "$SCRIPT_DIR/git-ws-shell-integration.sh" "$GIT_SHELL_INTEGRATION_FILE"
+echo "✓ Installed git shell integration to $GIT_SHELL_INTEGRATION_FILE"
 
 # Function to add sourcing to a profile file
 add_to_profile() {
     local profile_file="$1"
-    local source_line="source \"$SHELL_INTEGRATION_FILE\""
+    local ws_source_line="source \"$SHELL_INTEGRATION_FILE\""
+    local git_source_line="source \"$GIT_SHELL_INTEGRATION_FILE\""
     
     if [[ -f "$profile_file" ]]; then
+        local added_something=false
+        
+        # Check and add ws integration
         if ! grep -q "ws-shell-integration.sh" "$profile_file"; then
             echo "" >> "$profile_file"
             echo "# ws workspace management tool shell integration" >> "$profile_file"
-            echo "$source_line" >> "$profile_file"
+            echo "$ws_source_line" >> "$profile_file"
+            added_something=true
+        fi
+        
+        # Check and add git ws integration
+        if ! grep -q "git-ws-shell-integration.sh" "$profile_file"; then
+            if [[ "$added_something" == false ]]; then
+                echo "" >> "$profile_file"
+            fi
+            echo "# git ws workspace management subcommand shell integration" >> "$profile_file"
+            echo "$git_source_line" >> "$profile_file"
+            added_something=true
+        fi
+        
+        if [[ "$added_something" == true ]]; then
             echo "✓ Added sourcing to $profile_file"
             return 0
         else
@@ -125,16 +153,17 @@ if [[ "$ADDED_TO_PROFILE" == true ]]; then
             ;;
     esac
     echo
-    echo "Then you can use 'ws open <workspace>' to change directories automatically."
+    echo "Then you can use 'ws open <workspace>' or 'git ws open <workspace>' to change directories automatically."
 elif [[ "$ALREADY_CONFIGURED" == true ]]; then
     echo "✅ Installation complete!"
-    echo "Shell integration is already configured. You can use 'ws open <workspace>' to change directories automatically."
+    echo "Shell integration is already configured. You can use 'ws open <workspace>' or 'git ws open <workspace>' to change directories automatically."
 else
     echo "⚠️  Could not automatically add shell integration."
-    echo "Please manually add the following line to your shell profile:"
+    echo "Please manually add the following lines to your shell profile:"
     echo
     echo "source \"$SHELL_INTEGRATION_FILE\""
+    echo "source \"$GIT_SHELL_INTEGRATION_FILE\""
     echo
 fi
 
-echo "Run 'ws help' to see available commands."
+echo "Run 'ws help' or 'git ws help' to see available commands."
