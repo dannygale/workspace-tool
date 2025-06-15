@@ -13,14 +13,17 @@ git-ws() {
             command git ws open "$2"
         fi
     elif [[ "$1" == "exit" ]]; then
-        # Run the command and capture stdout only, let stderr pass through
-        local root_path
-        root_path=$(command git ws exit 2>/dev/null)
-        local exit_code=$?
-        if [[ $exit_code -eq 0 && -n "$root_path" ]]; then
-            cd "$root_path"
+        # Smart path-based detection: look for workspaces directory in current path
+        local current_dir=$(pwd)
+        
+        # Check if we're in a path that contains /workspaces/
+        if [[ "$current_dir" == */workspaces/* ]]; then
+            # Extract the root directory (everything before /workspaces/)
+            local root_dir="${current_dir%%/workspaces/*}"
+            cd "$root_dir"
             echo "Returned to root directory"
         else
+            # Not in a workspace, just show the message
             command git ws exit
         fi
     else
