@@ -198,3 +198,4 @@ chmod +x ~/.local/bin/ws ~/.local/bin/git-ws
 
 ### Command not found
 Ensure the scripts are in your PATH or use the full path to execute them. The install script should handle this automatically.
+# Test change from workspace

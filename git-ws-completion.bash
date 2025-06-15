@@ -59,7 +59,7 @@ _git_ws_completion() {
             return 0
             ;;
         new)
-            # For 'new' command, don't provide completions (user should type new name)
+            # For 'new' command, don't provide completions for workspace name (user should type new name)
             return 0
             ;;
         list|ls|exit|help)
@@ -67,6 +67,20 @@ _git_ws_completion() {
             return 0
             ;;
     esac
+    
+    # Handle cases where we're completing the fourth argument (base branch for 'git ws new' command)
+    # git ws new <workspace> <base-branch>
+    if [[ $effective_cword -eq 3 ]]; then
+        local command="${COMP_WORDS[2]}"  # The ws command is at index 2 (git=0, ws=1, command=2)
+        case "$command" in
+            new)
+                # For 'new' command's second argument, suggest branch names
+                local branches=$(git branch -a 2>/dev/null | sed 's/^[* ] //' | sed 's/remotes\/origin\///' | sort -u | grep -v '^HEAD' || echo "develop main master")
+                COMPREPLY=($(compgen -W "$branches" -- "$cur"))
+                return 0
+                ;;
+        esac
+    fi
     
     # Handle cases where the previous word is not the direct command
     # (e.g., when completing the second argument after 'git ws command')
