@@ -13,8 +13,11 @@ git-ws() {
             command git ws open "$2"
         fi
     elif [[ "$1" == "exit" ]]; then
-        local root_path=$(command git ws exit 2>/dev/null)
-        if [[ $? -eq 0 && -n "$root_path" ]]; then
+        # Run the command and capture stdout only, let stderr pass through
+        local root_path
+        root_path=$(command git ws exit 2>/dev/null)
+        local exit_code=$?
+        if [[ $exit_code -eq 0 && -n "$root_path" ]]; then
             cd "$root_path"
             echo "Returned to root directory"
         else

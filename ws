@@ -355,7 +355,7 @@ cmd_exit() {
         # We're in a workspace, return the root directory path
         echo "$root_dir"
     else
-        log_info "Already in root directory or not in a workspace"
+        echo -e "${BLUE}[INFO]${NC} Already in root directory or not in a workspace" >&2
         echo "$current_dir"
     fi
 }
