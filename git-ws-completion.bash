@@ -9,7 +9,7 @@ _git_ws_completion() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     
     # Main commands
-    local commands="new open fetch finish rm remove delete list ls exit help"
+    local commands="new create open cd fetch finish rm remove delete list ls exit help"
     
     # Function to get existing workspace names
     _get_workspaces() {
@@ -52,14 +52,14 @@ _git_ws_completion() {
     
     # If we're completing arguments for specific commands
     case "$prev" in
-        open|fetch|finish|rm|remove|delete)
+        open|cd|fetch|finish|rm|remove|delete)
             # These commands take existing workspace names
             local workspaces=$(_get_workspaces)
             COMPREPLY=($(compgen -W "$workspaces" -- "$cur"))
             return 0
             ;;
-        new)
-            # For 'new' command, don't provide completions for workspace name (user should type new name)
+        new|create)
+            # For 'new/create' command, don't provide completions for workspace name (user should type new name)
             return 0
             ;;
         list|ls|exit|help)
@@ -68,13 +68,13 @@ _git_ws_completion() {
             ;;
     esac
     
-    # Handle cases where we're completing the fourth argument (base branch for 'git ws new' command)
+    # Handle cases where we're completing the fourth argument (base branch for 'git ws new/create' command)
     # git ws new <workspace> <base-branch>
     if [[ $effective_cword -eq 3 ]]; then
         local command="${COMP_WORDS[2]}"  # The ws command is at index 2 (git=0, ws=1, command=2)
         case "$command" in
-            new)
-                # For 'new' command's second argument, suggest branch names
+            new|create)
+                # For 'new/create' command's second argument, suggest branch names
                 local branches=$(git branch -a 2>/dev/null | sed 's/^[* ] //' | sed 's/remotes\/origin\///' | sort -u | grep -v '^HEAD' || echo "develop main master")
                 COMPREPLY=($(compgen -W "$branches" -- "$cur"))
                 return 0
@@ -87,7 +87,7 @@ _git_ws_completion() {
     if [[ $effective_cword -eq 2 ]]; then
         local command="${COMP_WORDS[2]}"  # The ws command is at index 2 (git=0, ws=1, command=2)
         case "$command" in
-            open|fetch|finish|rm|remove|delete)
+            open|cd|fetch|finish|rm|remove|delete)
                 local workspaces=$(_get_workspaces)
                 COMPREPLY=($(compgen -W "$workspaces" -- "$cur"))
                 return 0

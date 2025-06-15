@@ -60,19 +60,20 @@ Workspace Management Tool
 Usage: ws <command> [arguments]
 
 Commands:
-  new [name] [base-branch]  Create a new workspace with feature branch (default: develop)
-  open [name]               Change directory to the specified workspace
-  fetch [name]              Fetch the feature branch from workspace to main repository
-  finish [name]             Fetch feature branch from workspace and merge into develop
-  rm [name]                 Delete the workspace (with confirmation if not merged)
-  list                      List all existing workspaces
-  exit                      Return to root directory if currently in a workspace
-  help                      Show this help message
+  new|create [name] [base-branch]  Create a new workspace with feature branch (default: develop)
+  open|cd [name]                   Change directory to the specified workspace
+  fetch [name]                     Fetch the feature branch from workspace to main repository
+  finish [name]                    Fetch feature branch from workspace and merge into develop
+  rm [name]                        Delete the workspace (with confirmation if not merged)
+  list                             List all existing workspaces
+  exit                             Return to root directory if currently in a workspace
+  help                             Show this help message
 
 Examples:
   ws new my-feature                # Creates workspace from develop branch
-  ws new my-feature main           # Creates workspace from main branch
-  ws open my-feature
+  ws create my-feature main       # Creates workspace from main branch (using alias)
+  ws open my-feature               # Opens workspace
+  ws cd my-feature                 # Opens workspace (using alias)
   ws fetch my-feature              # Brings changes from workspace back to main repo
   ws finish my-feature             # Fetches from workspace and merges into develop
   ws rm my-feature
@@ -372,10 +373,10 @@ main() {
     shift
     
     case "$command" in
-        new)
+        new|create)
             cmd_new "$@"
             ;;
-        open)
+        open|cd)
             cmd_open "$@"
             ;;
         fetch)

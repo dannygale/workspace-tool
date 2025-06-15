@@ -46,7 +46,9 @@ _ws() {
         command)
             local commands=(
                 'new:Create a new workspace with feature branch'
+                'create:Create a new workspace with feature branch (alias for new)'
                 'open:Change directory to the specified workspace'
+                'cd:Change directory to the specified workspace (alias for open)'
                 'fetch:Fetch the feature branch from the workspace'
                 'finish:Fetch and merge the feature branch into develop'
                 'rm:Delete the workspace'
@@ -61,11 +63,11 @@ _ws() {
             ;;
         argument)
             case $words[2] in
-                open|fetch|finish|rm|remove|delete)
+                open|cd|fetch|finish|rm|remove|delete)
                     local workspaces=($(_ws_get_workspaces))
                     _describe 'workspaces' workspaces
                     ;;
-                new)
+                new|create)
                     _message 'workspace name'
                     ;;
                 list|ls|exit|help)
@@ -75,8 +77,8 @@ _ws() {
             ;;
         third_argument)
             case $words[2] in
-                new)
-                    # For 'new' command's second argument, suggest branch names
+                new|create)
+                    # For 'new/create' command's second argument, suggest branch names
                     local branches=($(git branch -a 2>/dev/null | sed 's/^[* ] //' | sed 's/remotes\/origin\///' | sort -u | grep -v '^HEAD' 2>/dev/null || echo "develop main master"))
                     _describe 'base branch' branches
                     ;;
