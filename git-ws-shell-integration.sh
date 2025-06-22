@@ -4,12 +4,13 @@
 # This file should be sourced in your shell profile
 
 git-ws() {
-    if [[ "$1" == "open" ]]; then
+    if [[ "$1" == "open" || "$1" == "cd" ]]; then
         local workspace_path=$(command git ws open "$2" 2>/dev/null)
-        if [[ $? -eq 0 && -n "$workspace_path" ]]; then
+        if [[ $? -eq 0 && -n "$workspace_path" && -d "$workspace_path" ]]; then
             cd "$workspace_path"
             echo "Changed to workspace: $2"
         else
+            # If it failed, run the command normally to show the error
             command git ws open "$2"
         fi
     elif [[ "$1" == "exit" ]]; then
