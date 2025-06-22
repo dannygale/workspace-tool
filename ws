@@ -62,13 +62,8 @@ Usage: ws <command> [arguments]
 Commands:
   new|create [name] [base-branch]  Create a new workspace with feature branch (default: develop)
   open|cd [name]                   Change directory to the specified workspace
-<<<<<<< HEAD
-  fetch [name]                     Fetch the feature branch from workspace to main repository
-  finish [name]                    Fetch feature branch from workspace and merge into develop
-=======
   fetch [name]                     Fetch the feature branch from local workspace to main repository
   finish [name]                    Fetch feature branch from workspace and merge into local develop
->>>>>>> develop
   rm [name]                        Delete the workspace (with confirmation if not merged)
   list                             List all existing workspaces
   exit                             Return to root directory if currently in a workspace
@@ -79,13 +74,8 @@ Examples:
   ws create my-feature main       # Creates workspace from main branch (using alias)
   ws open my-feature               # Opens workspace
   ws cd my-feature                 # Opens workspace (using alias)
-<<<<<<< HEAD
-  ws fetch my-feature              # Brings changes from workspace back to main repo
-  ws finish my-feature             # Fetches from workspace and merges into develop
-=======
   ws fetch my-feature              # Brings changes from local workspace back to main repo
   ws finish my-feature             # Fetches from workspace and merges into local develop
->>>>>>> develop
   ws rm my-feature
   ws exit
 
@@ -100,8 +90,25 @@ validate_workspace_name() {
         exit 1
     fi
     
-    if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-        log_error "Workspace name can only contain letters, numbers, hyphens, and underscores"
+    # Check for problematic characters that would cause issues with filesystem or shell
+    # Reject: path separators, shell metacharacters, control characters
+    if [[ "$name" == *"/"* ]] || [[ "$name" == *"\\"* ]] || [[ "$name" == *":"* ]] || \
+       [[ "$name" == *"*"* ]] || [[ "$name" == *"?"* ]] || [[ "$name" == *"\""* ]] || \
+       [[ "$name" == *"'"* ]] || [[ "$name" == *"<"* ]] || [[ "$name" == *">"* ]] || \
+       [[ "$name" == *"|"* ]]; then
+        log_error "Workspace name contains invalid characters. Avoid: / \\ : * ? \" ' < > |"
+        exit 1
+    fi
+    
+    # Reject names that are just dots (., .., etc.) as they have special meaning
+    if [[ "$name" =~ ^\.+$ ]]; then
+        log_error "Workspace name cannot be just dots (., .., etc.)"
+        exit 1
+    fi
+    
+    # Reject empty name or names with only whitespace
+    if [[ "$name" =~ ^[[:space:]]*$ ]]; then
+        log_error "Workspace name cannot be empty or contain only whitespace"
         exit 1
     fi
 }
