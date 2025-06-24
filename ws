@@ -940,7 +940,7 @@ cmd_hooks() {
             cmd_hooks_init
             ;;
         create)
-            cmd_hooks_create "$2" "$3"
+            cmd_hooks_create "$2" "$3" "$4"
             ;;
         edit)
             cmd_hooks_edit "$2"
@@ -1066,12 +1066,9 @@ cmd_hooks_create() {
     local hook_name="$2"
     local no_edit=false
     
-    # Check for --no-edit flag
+    # Check for --no-edit flag in third position
     if [[ "$3" == "--no-edit" ]]; then
         no_edit=true
-    elif [[ "$2" == "--no-edit" ]]; then
-        no_edit=true
-        hook_name=""
     fi
     
     if [[ -z "$hook_type" || -z "$hook_name" ]]; then
@@ -1237,7 +1234,7 @@ main() {
                     cmd_hooks_init
                     ;;
                 create)
-                    cmd_hooks_create "$2" "$3"
+                    cmd_hooks_create "$2" "$3" "$4"
                     ;;
                 edit)
                     cmd_hooks_edit "$2"
