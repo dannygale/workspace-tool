@@ -509,6 +509,9 @@ cmd_new() {
     log_info "Feature branch: $branch_name"
     log_info "Path: $workspace_path"
     
+    # Return to base directory for consistent hook execution
+    cd "$BASEDIR"
+    
     # Execute post-create hooks
     execute_hooks "post-create" "$name" "$workspace_path" "$branch_name"
 }
@@ -962,7 +965,8 @@ Usage: ws hooks <subcommand> [arguments]
 Subcommands:
   list|ls                    List all available hooks
   init                       Initialize hooks directory with examples
-  create <type> <name>       Create a new hook script
+  create <type> <name>       Create a new hook script (opens in editor)
+  create <type> <name> --no-edit  Create hook without opening editor
   edit <hook-name>           Edit an existing hook script
   help                       Show this help message
 
@@ -977,8 +981,14 @@ Hook Types:
 Examples:
   ws hooks list              # List all hooks
   ws hooks init              # Create example hooks
-  ws hooks create post-create deploy    # Create post-create-deploy hook
+  ws hooks create post-create deploy    # Create and edit post-create-deploy hook
+  ws hooks create pre-finish test --no-edit  # Create hook without opening editor
   ws hooks edit post-create-deploy      # Edit the hook
+
+Hook Execution:
+  All hooks execute from the git repository root directory for consistency.
+  Hooks can navigate to workspace directories using the provided environment
+  variables and arguments.
 
 Hook Environment Variables:
   WS_HOOK_TYPE              Type of hook being executed
@@ -1054,6 +1064,15 @@ cmd_hooks_init() {
 cmd_hooks_create() {
     local hook_type="$1"
     local hook_name="$2"
+    local no_edit=false
+    
+    # Check for --no-edit flag
+    if [[ "$3" == "--no-edit" ]]; then
+        no_edit=true
+    elif [[ "$2" == "--no-edit" ]]; then
+        no_edit=true
+        hook_name=""
+    fi
     
     if [[ -z "$hook_type" || -z "$hook_name" ]]; then
         log_error "Usage: ws hooks create <type> <name>"
@@ -1117,7 +1136,23 @@ EOF
     chmod +x "$hook_file"
     log_success "Created hook: $hook_file"
     log_info "Hook is executable and ready to use"
-    echo "Edit with: \$EDITOR $hook_file"
+    
+    # Automatically open in editor if available and not disabled
+    if [[ "$no_edit" == "true" ]]; then
+        echo "Edit with: \$EDITOR $hook_file"
+    elif [[ -n "$EDITOR" ]]; then
+        log_info "Opening hook in editor..."
+        "$EDITOR" "$hook_file"
+    elif command -v nano >/dev/null 2>&1; then
+        log_info "Opening hook in nano..."
+        nano "$hook_file"
+    elif command -v vi >/dev/null 2>&1; then
+        log_info "Opening hook in vi..."
+        vi "$hook_file"
+    else
+        echo "Edit with: \$EDITOR $hook_file"
+        log_info "No editor found. Set \$EDITOR environment variable for automatic editing."
+    fi
 }
 
 cmd_hooks_edit() {
