@@ -9,7 +9,7 @@ _ws_completion() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     
     # Main commands
-    local commands="new create open cd fetch finish rm remove delete list ls exit help"
+    local commands="new create open cd fetch finish rm remove delete list ls hooks exit help"
     
     # Function to get existing workspace names
     _get_workspaces() {
@@ -40,6 +40,22 @@ _ws_completion() {
         fi
     }
     
+    # Function to get available hooks
+    _get_hooks() {
+        local git_root
+        if git_root=$(git rev-parse --show-toplevel 2>/dev/null); then
+            local hooks_dir="$git_root/workspaces/.hooks"
+            if [[ -d "$hooks_dir" ]]; then
+                # Find all executable files that are not examples
+                for hook_file in "$hooks_dir"/*; do
+                    if [[ -f "$hook_file" && -x "$hook_file" && ! "$hook_file" =~ \.example$ ]]; then
+                        basename "$hook_file"
+                    fi
+                done
+            fi
+        fi
+    }
+    
     # If we're completing the first argument (command)
     if [[ ${COMP_CWORD} -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$commands" -- "$cur"))
@@ -58,6 +74,12 @@ _ws_completion() {
             # For 'new/create' command, don't provide completions for workspace name (user should type new name)
             return 0
             ;;
+        hooks)
+            # Hooks subcommands
+            local hooks_commands="list ls init create edit help"
+            COMPREPLY=($(compgen -W "$hooks_commands" -- "$cur"))
+            return 0
+            ;;
         list|ls|exit|help)
             # These commands don't take arguments
             return 0
@@ -73,6 +95,39 @@ _ws_completion() {
                 local branches=$(git branch -a 2>/dev/null | sed 's/^[* ] //' | sed 's/remotes\/origin\///' | sort -u | grep -v '^HEAD' || echo "develop main master")
                 COMPREPLY=($(compgen -W "$branches" -- "$cur"))
                 return 0
+                ;;
+            hooks)
+                local hooks_subcommand="${COMP_WORDS[2]}"
+                case "$hooks_subcommand" in
+                    create)
+                        # Hook types for 'hooks create'
+                        local hook_types="pre-create post-create pre-finish post-finish pre-delete post-delete"
+                        COMPREPLY=($(compgen -W "$hook_types" -- "$cur"))
+                        return 0
+                        ;;
+                    edit)
+                        # Available hooks for 'hooks edit'
+                        local available_hooks=$(_get_hooks)
+                        COMPREPLY=($(compgen -W "$available_hooks" -- "$cur"))
+                        return 0
+                        ;;
+                esac
+                ;;
+        esac
+    fi
+    
+    # Handle cases where we're completing the fourth argument
+    if [[ ${COMP_CWORD} -eq 4 ]]; then
+        local command="${COMP_WORDS[1]}"
+        case "$command" in
+            hooks)
+                local hooks_subcommand="${COMP_WORDS[2]}"
+                case "$hooks_subcommand" in
+                    create)
+                        # Hook name for 'hooks create <type> <name>' - no completion, user types name
+                        return 0
+                        ;;
+                esac
                 ;;
         esac
     fi

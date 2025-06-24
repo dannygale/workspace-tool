@@ -131,10 +131,10 @@ Both `ws` and `git ws` support intelligent tab completion:
 ### Command Completion
 ```bash
 ws <TAB>
-# Shows: new open fetch finish rm remove delete list ls exit help
+# Shows: new open fetch finish rm remove delete list ls hooks exit help
 
 git ws <TAB>  
-# Shows: new open fetch finish rm remove delete list ls exit help
+# Shows: new open fetch finish rm remove delete list ls hooks exit help
 ```
 
 ### Workspace Name Completion
@@ -149,7 +149,22 @@ git ws fetch <TAB>
 # Shows your existing workspace names
 ```
 
-The completion automatically discovers workspaces and only shows relevant options based on the command context. See [TAB_COMPLETION.md](TAB_COMPLETION.md) for detailed information.
+### Hooks Command Completion
+```bash
+ws hooks <TAB>
+# Shows: list ls init create edit help
+
+ws hooks create <TAB>
+# Shows: pre-create post-create pre-finish post-finish pre-delete post-delete
+
+ws hooks edit <TAB>
+# Shows your existing hook names
+
+git ws hooks create post-create <TAB>
+# Prompts for hook name
+```
+
+The completion automatically discovers workspaces and hooks, and only shows relevant options based on the command context. Hook type completion provides descriptions of when each hook type executes. See [TAB_COMPLETION.md](TAB_COMPLETION.md) for detailed information.
 
 ## Directory Structure
 

@@ -32,6 +32,27 @@ _ws_get_workspaces() {
     fi
 }
 
+# Get available hooks for completion
+_ws_get_hooks() {
+    local git_root
+    git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+    if [[ -z "$git_root" ]]; then
+        return
+    fi
+    
+    local hooks_dir="$git_root/workspaces/.hooks"
+    if [[ -d "$hooks_dir" ]]; then
+        # Find all executable files that are not examples
+        local hooks=()
+        for hook_file in "$hooks_dir"/*; do
+            if [[ -f "$hook_file" && -x "$hook_file" && ! "$hook_file" =~ "\.example$" ]]; then
+                hooks+=($(basename "$hook_file"))
+            fi
+        done
+        print -l $hooks
+    fi
+}
+
 _ws() {
     local context state line
     typeset -A opt_args
@@ -40,6 +61,7 @@ _ws() {
         '1: :->command' \
         '2: :->argument' \
         '3: :->third_argument' \
+        '4: :->fourth_argument' \
         && return 0
     
     case $state in
@@ -71,6 +93,18 @@ _ws() {
                 new|create)
                     _message 'workspace name'
                     ;;
+                hooks)
+                    # Hooks subcommands
+                    local hooks_commands=(
+                        'list:List all available hooks'
+                        'ls:List all available hooks'
+                        'init:Initialize hooks directory with examples'
+                        'create:Create a new hook script'
+                        'edit:Edit an existing hook script'
+                        'help:Show hooks help message'
+                    )
+                    _describe 'hooks subcommands' hooks_commands
+                    ;;
                 list|ls|exit|help)
                     # No arguments for these commands
                     ;;
@@ -82,6 +116,46 @@ _ws() {
                     # For 'new/create' command's second argument, suggest branch names
                     local branches=($(git branch -a 2>/dev/null | sed 's/^[* ] //' | sed 's/remotes\/origin\///' | sort -u | grep -v '^HEAD' 2>/dev/null || echo "develop main master"))
                     _describe 'base branch' branches
+                    ;;
+                hooks)
+                    case $words[3] in
+                        create)
+                            # Hook types for 'hooks create'
+                            local hook_types=(
+                                'pre-create:Runs before workspace creation'
+                                'post-create:Runs after workspace creation'
+                                'pre-finish:Runs before workspace finishing (merge)'
+                                'post-finish:Runs after workspace finishing (merge)'
+                                'pre-delete:Runs before workspace deletion'
+                                'post-delete:Runs after workspace deletion'
+                            )
+                            _describe 'hook types' hook_types
+                            ;;
+                        edit)
+                            # Available hooks for 'hooks edit'
+                            local available_hooks=($(_ws_get_hooks))
+                            if [[ ${#available_hooks[@]} -gt 0 ]]; then
+                                _describe 'available hooks' available_hooks
+                            else
+                                _message 'no hooks found - run "ws hooks init" first'
+                            fi
+                            ;;
+                        list|ls|init|help)
+                            # No arguments for these subcommands
+                            ;;
+                    esac
+                    ;;
+            esac
+            ;;
+        fourth_argument)
+            case $words[2] in
+                hooks)
+                    case $words[3] in
+                        create)
+                            # Hook name for 'hooks create <type> <name>'
+                            _message 'hook name'
+                            ;;
+                    esac
                     ;;
             esac
             ;;
