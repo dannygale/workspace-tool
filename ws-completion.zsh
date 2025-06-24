@@ -56,6 +56,7 @@ _ws() {
                 'delete:Delete workspaces (supports multiple names and patterns)'
                 'list:List all existing workspaces'
                 'ls:List all existing workspaces'
+                'hooks:Manage workspace lifecycle hooks'
                 'exit:Return to root directory if currently in a workspace'
                 'help:Show help message'
             )

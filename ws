@@ -52,6 +52,203 @@ find_git_root() {
 
 BASEDIR=$(find_git_root)
 WORKSPACES_DIR="$BASEDIR/workspaces"
+HOOKS_DIR="$WORKSPACES_DIR/.hooks"
+
+# Hook system for workspace lifecycle events
+discover_hooks() {
+    local hook_type="$1"
+    local hooks=()
+    
+    if [[ -d "$HOOKS_DIR" ]]; then
+        # Look for executable scripts matching the hook type
+        for hook_file in "$HOOKS_DIR"/$hook_type-* "$HOOKS_DIR"/$hook_type.*; do
+            if [[ -f "$hook_file" && -x "$hook_file" ]]; then
+                hooks+=("$hook_file")
+            fi
+        done
+    fi
+    
+    printf '%s\n' "${hooks[@]}" | sort
+}
+
+execute_hooks() {
+    local hook_type="$1"
+    local workspace_name="$2"
+    local workspace_path="$3"
+    local branch_name="$4"
+    
+    local hooks=()
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && hooks+=("$line")
+    done < <(discover_hooks "$hook_type")
+    
+    if [[ ${#hooks[@]} -eq 0 ]]; then
+        return 0
+    fi
+    
+    log_info "Executing $hook_type hooks..."
+    
+    for hook in "${hooks[@]}"; do
+        local hook_name=$(basename "$hook")
+        log_info "Running hook: $hook_name"
+        
+        # Set environment variables for the hook
+        export WS_HOOK_TYPE="$hook_type"
+        export WS_WORKSPACE_NAME="$workspace_name"
+        export WS_WORKSPACE_PATH="$workspace_path"
+        export WS_BRANCH_NAME="$branch_name"
+        export WS_BASE_DIR="$BASEDIR"
+        export WS_WORKSPACES_DIR="$WORKSPACES_DIR"
+        
+        # Execute the hook
+        if "$hook" "$workspace_name" "$workspace_path" "$branch_name" "$BASEDIR"; then
+            log_success "Hook '$hook_name' completed successfully"
+        else
+            log_warning "Hook '$hook_name' failed with exit code $?"
+        fi
+        
+        # Clean up environment variables
+        unset WS_HOOK_TYPE WS_WORKSPACE_NAME WS_WORKSPACE_PATH WS_BRANCH_NAME WS_BASE_DIR WS_WORKSPACES_DIR
+    done
+}
+
+# Create hooks directory if it doesn't exist
+ensure_hooks_directory() {
+    if [[ ! -d "$HOOKS_DIR" ]]; then
+        mkdir -p "$HOOKS_DIR"
+        log_info "Created hooks directory: $HOOKS_DIR"
+        
+        # Create example hooks
+        create_example_hooks
+    fi
+}
+
+create_example_hooks() {
+    # Create example post-create hook
+    cat > "$HOOKS_DIR/post-create.example" << 'EOF'
+#!/bin/bash
+# Example post-create hook
+# This script runs after a workspace is created
+# 
+# Available environment variables:
+# - WS_HOOK_TYPE: The type of hook (post-create, pre-finish, post-finish, pre-delete, post-delete)
+# - WS_WORKSPACE_NAME: Name of the workspace
+# - WS_WORKSPACE_PATH: Full path to the workspace directory
+# - WS_BRANCH_NAME: Name of the feature branch
+# - WS_BASE_DIR: Base directory of the project
+# - WS_WORKSPACES_DIR: Directory containing all workspaces
+#
+# Arguments passed to the script:
+# $1 = workspace name
+# $2 = workspace path  
+# $3 = branch name
+# $4 = base directory
+
+echo "🎉 Workspace '$1' created successfully!"
+echo "📁 Location: $2"
+echo "🌿 Branch: $3"
+
+# Example: Install dependencies in the new workspace
+# cd "$2" && npm install
+
+# Example: Set up development environment
+# cd "$2" && cp .env.example .env
+
+# Example: Send notification
+# curl -X POST "https://hooks.slack.com/..." -d "{'text':'New workspace $1 created'}"
+EOF
+
+    # Create example pre-finish hook
+    cat > "$HOOKS_DIR/pre-finish.example" << 'EOF'
+#!/bin/bash
+# Example pre-finish hook
+# This script runs before a workspace is finished (merged)
+
+echo "🔍 Running pre-finish checks for workspace '$1'..."
+
+# Example: Run tests before finishing
+# cd "$2" && npm test
+
+# Example: Run linting
+# cd "$2" && npm run lint
+
+# Example: Check for uncommitted changes
+cd "$2"
+if ! git diff --quiet; then
+    echo "⚠️  Warning: Workspace has uncommitted changes"
+    git status --short
+fi
+
+echo "✅ Pre-finish checks completed for '$1'"
+EOF
+
+    # Create example post-finish hook
+    cat > "$HOOKS_DIR/post-finish.example" << 'EOF'
+#!/bin/bash
+# Example post-finish hook
+# This script runs after a workspace is finished (merged)
+
+echo "🎯 Workspace '$1' has been finished and merged!"
+
+# Example: Deploy to staging
+# ./deploy-staging.sh
+
+# Example: Update issue tracker
+# curl -X POST "https://api.github.com/repos/owner/repo/issues/123/comments" \
+#   -d "{'body':'Feature branch $3 has been merged'}"
+
+# Example: Clean up temporary files
+# rm -rf "$2/tmp/*"
+
+echo "🚀 Post-finish tasks completed for '$1'"
+EOF
+
+    # Create example pre-delete hook
+    cat > "$HOOKS_DIR/pre-delete.example" << 'EOF'
+#!/bin/bash
+# Example pre-delete hook
+# This script runs before a workspace is deleted
+
+echo "🗑️  Preparing to delete workspace '$1'..."
+
+# Example: Backup important files
+# mkdir -p "$WS_BASE_DIR/backups/$1"
+# cp "$2/important-file.txt" "$WS_BASE_DIR/backups/$1/"
+
+# Example: Check if workspace has unmerged changes
+cd "$2"
+if git log origin/develop..HEAD --oneline | grep -q .; then
+    echo "⚠️  Warning: Workspace has unmerged commits"
+    git log origin/develop..HEAD --oneline
+fi
+
+echo "✅ Pre-delete checks completed for '$1'"
+EOF
+
+    # Create example post-delete hook
+    cat > "$HOOKS_DIR/post-delete.example" << 'EOF'
+#!/bin/bash
+# Example post-delete hook
+# This script runs after a workspace is deleted
+
+echo "🧹 Workspace '$1' has been deleted"
+
+# Example: Clean up related resources
+# docker rmi "workspace-$1" 2>/dev/null || true
+
+# Example: Update tracking systems
+# curl -X DELETE "https://api.example.com/workspaces/$1"
+
+# Example: Send notification
+# echo "Workspace $1 deleted at $(date)" >> "$WS_BASE_DIR/workspace-log.txt"
+
+echo "✅ Post-delete cleanup completed for '$1'"
+EOF
+
+    log_info "Created example hooks in $HOOKS_DIR"
+    log_info "To use a hook, copy the .example file and remove the .example extension"
+    log_info "Make sure to make the hook executable: chmod +x $HOOKS_DIR/hook-name"
+}
 
 # Expand workspace patterns to actual workspace names
 expand_workspace_patterns() {
@@ -179,6 +376,7 @@ Commands:
   finish [name...]                 Fetch feature branches from workspaces and merge into local develop
   rm [name...]                     Delete workspaces (with confirmation if not merged)
   list                             List all existing workspaces
+  hooks                            Manage workspace lifecycle hooks
   exit                             Return to root directory if currently in a workspace
   help                             Show this help message
 
@@ -191,6 +389,15 @@ Multi-workspace operations:
   ws rm workspace1 'test-*' temp   # Mix specific names and patterns
 
   IMPORTANT: Use quotes around glob patterns to prevent shell expansion!
+
+Hooks system:
+  Automatically run custom scripts during workspace lifecycle events:
+  
+  ws hooks init                    # Initialize hooks with examples
+  ws hooks list                    # List all available hooks
+  ws hooks create post-create deploy  # Create a new hook
+  
+  Hook types: pre-create, post-create, pre-finish, post-finish, pre-delete, post-delete
 
 Examples:
   ws new my-feature                # Creates workspace from develop branch
@@ -268,6 +475,12 @@ cmd_new() {
         exit 1
     fi
     
+    # Ensure hooks directory exists
+    ensure_hooks_directory
+    
+    # Execute pre-create hooks
+    execute_hooks "pre-create" "$name" "$workspace_path" "$branch_name"
+    
     log_info "Creating workspace '$name' from branch '$base_branch'..."
     
     # Create workspace directory
@@ -295,6 +508,9 @@ cmd_new() {
     log_info "Base branch: $base_branch"
     log_info "Feature branch: $branch_name"
     log_info "Path: $workspace_path"
+    
+    # Execute post-create hooks
+    execute_hooks "post-create" "$name" "$workspace_path" "$branch_name"
 }
 
 cmd_open() {
@@ -499,6 +715,9 @@ cmd_finish() {
         
         log_info "Processing workspace '$name' (branch: $branch_name)..."
         
+        # Execute pre-finish hooks
+        execute_hooks "pre-finish" "$name" "$workspace_path" "$branch_name"
+        
         # Fetch the feature branch from the workspace directory (local operation)
         log_info "Fetching branch '$branch_name' from workspace '$name'..."
         local temp_remote="workspace-$name"
@@ -523,6 +742,9 @@ cmd_finish() {
         if git merge "$branch_name" --no-ff -m "Merge branch '$branch_name' from workspace '$name'"; then
             log_success "Successfully merged branch '$branch_name' into develop"
             ((success_count++))
+            
+            # Execute post-finish hooks
+            execute_hooks "post-finish" "$name" "$workspace_path" "$branch_name"
         else
             log_error "Failed to merge branch '$branch_name' into develop"
             failed_workspaces+=("$name")
@@ -661,10 +883,18 @@ cmd_rm() {
     local deleted_count=0
     for name in "${existing_workspaces[@]}"; do
         local workspace_path=$(get_workspace_path "$name")
+        local branch_name=$(get_branch_name "$name")
+        
+        # Execute pre-delete hooks
+        execute_hooks "pre-delete" "$name" "$workspace_path" "$branch_name"
+        
         log_info "Deleting workspace '$name'..."
         if rm -rf "$workspace_path"; then
             log_success "Workspace '$name' deleted successfully"
             ((deleted_count++))
+            
+            # Execute post-delete hooks
+            execute_hooks "post-delete" "$name" "$workspace_path" "$branch_name"
         else
             log_error "Failed to delete workspace '$name'"
         fi
@@ -694,6 +924,221 @@ cmd_list() {
             echo "  • $workspace ($branch_name)"
         fi
     done
+}
+
+cmd_hooks() {
+    local subcommand="$1"
+    
+    case "$subcommand" in
+        list|ls)
+            cmd_hooks_list
+            ;;
+        init)
+            cmd_hooks_init
+            ;;
+        create)
+            cmd_hooks_create "$2" "$3"
+            ;;
+        edit)
+            cmd_hooks_edit "$2"
+            ;;
+        help|--help|-h|"")
+            cmd_hooks_help
+            ;;
+        *)
+            log_error "Unknown hooks subcommand: $subcommand"
+            cmd_hooks_help
+            exit 1
+            ;;
+    esac
+}
+
+cmd_hooks_help() {
+    cat << EOF
+Hooks Management
+
+Usage: ws hooks <subcommand> [arguments]
+
+Subcommands:
+  list|ls                    List all available hooks
+  init                       Initialize hooks directory with examples
+  create <type> <name>       Create a new hook script
+  edit <hook-name>           Edit an existing hook script
+  help                       Show this help message
+
+Hook Types:
+  pre-create                 Runs before workspace creation
+  post-create                Runs after workspace creation
+  pre-finish                 Runs before workspace finishing (merge)
+  post-finish                Runs after workspace finishing (merge)
+  pre-delete                 Runs before workspace deletion
+  post-delete                Runs after workspace deletion
+
+Examples:
+  ws hooks list              # List all hooks
+  ws hooks init              # Create example hooks
+  ws hooks create post-create deploy    # Create post-create-deploy hook
+  ws hooks edit post-create-deploy      # Edit the hook
+
+Hook Environment Variables:
+  WS_HOOK_TYPE              Type of hook being executed
+  WS_WORKSPACE_NAME         Name of the workspace
+  WS_WORKSPACE_PATH         Full path to workspace directory
+  WS_BRANCH_NAME            Name of the feature branch
+  WS_BASE_DIR               Base directory of the project
+  WS_WORKSPACES_DIR         Directory containing all workspaces
+
+Hook Arguments:
+  \$1 = workspace name
+  \$2 = workspace path
+  \$3 = branch name
+  \$4 = base directory
+EOF
+}
+
+cmd_hooks_list() {
+    ensure_hooks_directory
+    
+    echo "Hooks directory: $HOOKS_DIR"
+    echo
+    
+    local hook_types=("pre-create" "post-create" "pre-finish" "post-finish" "pre-delete" "post-delete")
+    local found_hooks=false
+    
+    for hook_type in "${hook_types[@]}"; do
+        local hooks=()
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && hooks+=("$line")
+        done < <(discover_hooks "$hook_type")
+        
+        if [[ ${#hooks[@]} -gt 0 ]]; then
+            echo "📋 $hook_type hooks:"
+            for hook in "${hooks[@]}"; do
+                local hook_name=$(basename "$hook")
+                local hook_status="✅ executable"
+                if [[ ! -x "$hook" ]]; then
+                    hook_status="⚠️  not executable"
+                fi
+                echo "  • $hook_name ($hook_status)"
+            done
+            echo
+            found_hooks=true
+        fi
+    done
+    
+    if [[ "$found_hooks" == "false" ]]; then
+        echo "No hooks found. Run 'ws hooks init' to create example hooks."
+    fi
+    
+    # Show example hooks
+    local examples=($(ls -1 "$HOOKS_DIR"/*.example 2>/dev/null || true))
+    if [[ ${#examples[@]} -gt 0 ]]; then
+        echo "📝 Example hooks (copy and remove .example to use):"
+        for example in "${examples[@]}"; do
+            local example_name=$(basename "$example")
+            echo "  • $example_name"
+        done
+    fi
+}
+
+cmd_hooks_init() {
+    ensure_hooks_directory
+    log_success "Hooks directory initialized with examples"
+    echo
+    echo "To use a hook:"
+    echo "1. Copy an example: cp $HOOKS_DIR/post-create.example $HOOKS_DIR/post-create-deploy"
+    echo "2. Edit the hook: \$EDITOR $HOOKS_DIR/post-create-deploy"
+    echo "3. Make it executable: chmod +x $HOOKS_DIR/post-create-deploy"
+}
+
+cmd_hooks_create() {
+    local hook_type="$1"
+    local hook_name="$2"
+    
+    if [[ -z "$hook_type" || -z "$hook_name" ]]; then
+        log_error "Usage: ws hooks create <type> <name>"
+        echo "Example: ws hooks create post-create deploy"
+        exit 1
+    fi
+    
+    local valid_types=("pre-create" "post-create" "pre-finish" "post-finish" "pre-delete" "post-delete")
+    local is_valid=false
+    for valid_type in "${valid_types[@]}"; do
+        if [[ "$hook_type" == "$valid_type" ]]; then
+            is_valid=true
+            break
+        fi
+    done
+    
+    if [[ "$is_valid" == "false" ]]; then
+        log_error "Invalid hook type: $hook_type"
+        echo "Valid types: ${valid_types[*]}"
+        exit 1
+    fi
+    
+    ensure_hooks_directory
+    
+    local hook_file="$HOOKS_DIR/$hook_type-$hook_name"
+    
+    if [[ -f "$hook_file" ]]; then
+        log_error "Hook already exists: $hook_file"
+        exit 1
+    fi
+    
+    cat > "$hook_file" << EOF
+#!/bin/bash
+# $hook_type hook: $hook_name
+# This script runs during the $hook_type phase
+#
+# Available environment variables:
+# - WS_HOOK_TYPE: The type of hook ($hook_type)
+# - WS_WORKSPACE_NAME: Name of the workspace
+# - WS_WORKSPACE_PATH: Full path to the workspace directory
+# - WS_BRANCH_NAME: Name of the feature branch
+# - WS_BASE_DIR: Base directory of the project
+# - WS_WORKSPACES_DIR: Directory containing all workspaces
+#
+# Arguments passed to the script:
+# \$1 = workspace name
+# \$2 = workspace path
+# \$3 = branch name
+# \$4 = base directory
+
+echo "🔧 Running $hook_type hook: $hook_name"
+echo "📁 Workspace: \$1"
+echo "🌿 Branch: \$3"
+
+# Add your custom logic here
+# Example: cd "\$2" && npm install
+
+echo "✅ Hook $hook_name completed"
+EOF
+    
+    chmod +x "$hook_file"
+    log_success "Created hook: $hook_file"
+    log_info "Hook is executable and ready to use"
+    echo "Edit with: \$EDITOR $hook_file"
+}
+
+cmd_hooks_edit() {
+    local hook_name="$1"
+    
+    if [[ -z "$hook_name" ]]; then
+        log_error "Usage: ws hooks edit <hook-name>"
+        echo "Use 'ws hooks list' to see available hooks"
+        exit 1
+    fi
+    
+    local hook_file="$HOOKS_DIR/$hook_name"
+    
+    if [[ ! -f "$hook_file" ]]; then
+        log_error "Hook not found: $hook_file"
+        echo "Use 'ws hooks list' to see available hooks"
+        exit 1
+    fi
+    
+    local editor="${EDITOR:-nano}"
+    "$editor" "$hook_file"
 }
 
 cmd_exit() {
@@ -746,6 +1191,33 @@ main() {
             ;;
         list|ls)
             cmd_list "$@"
+            ;;
+        hooks)
+            # Handle hooks subcommands (command has already been shifted out)
+            case "$1" in
+                list|ls)
+                    cmd_hooks_list
+                    ;;
+                init)
+                    cmd_hooks_init
+                    ;;
+                create)
+                    cmd_hooks_create "$2" "$3"
+                    ;;
+                edit)
+                    cmd_hooks_edit "$2"
+                    ;;
+                help|--help|-h|"")
+                    cmd_hooks_help
+                    ;;
+                *)
+                    if [[ -n "$1" ]]; then
+                        log_error "Unknown hooks subcommand: $1"
+                    fi
+                    cmd_hooks_help
+                    exit 1
+                    ;;
+            esac
             ;;
         exit)
             cmd_exit "$@"
